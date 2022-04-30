@@ -8,10 +8,27 @@
 #define CSH_TOK_BUFSIZE 64
 #define CSH_TOK_DELIM " \t\r\n\a"
 
-void cshel_loop();
+void cshell_loop();
 char *cshell_read_line();
 char **cshell_split_line(char *line);
 int cshell_launch(char **args);
+int csh_cd(char **args);
+int csh_help(char **args);
+int csh_exit(char **args);
+int csh_num_builtins();
+int cshell_execute(char **args);
+
+char *bultin_str[] = {
+    "cd",
+    "help",
+    "exit"
+};
+
+int(*bultin_func[]) (char **) = {
+    &csh_cd,
+    &csh_help,
+    &csh_exit
+};
 
 int main(int argc, char **argv){
 
@@ -20,7 +37,7 @@ int main(int argc, char **argv){
     return 0;
 }
 
-void cshel_loop(){
+void cshell_loop(){
     char *line;
     char **args;
     int status;
@@ -58,7 +75,7 @@ char *cshell_read_line(){
 	
 	if(position >= bufsize) {
 	    bufsize += CSH_RL_BUFSIZE;
-	    buffer = realloc(buffer, byfsize);
+	    buffer = realloc(buffer, bufsize);
 	    if(!buffer){
 		fprintf(stderr, "csh: allocation error\n");
 		exit(2);
@@ -68,7 +85,7 @@ char *cshell_read_line(){
 }
 
 char **cshell_split_line(char *line){
-    int bufsize = CSH_TOK_BUDSIZE, position = 0;
+    int bufsize = CSH_TOK_BUFSIZE, position = 0;
     char **tokens = malloc(bufsize * sizeof(char*));
     char *token;
 
@@ -79,7 +96,7 @@ char **cshell_split_line(char *line){
 
     token = strtok(line, CSH_TOK_DELIM);
     while (token != NULL){
-	topkens[position] = token;
+	tokens[position] = token;
 	position++;
 
 	if(position >= bufsize){
@@ -102,7 +119,7 @@ int cshell_launch(char **args){
 
     pid = fork();
     if(pid == 0){
-	if(execvp(args[0], args) == -a) perror("csh");
+	if(execvp(args[0], args) == -1) perror("csh");
 	exit(5);
     }else if(pid < 0) perror("csh");
     else{
@@ -112,4 +129,46 @@ int cshell_launch(char **args){
     }
 
     return 1;
+}
+
+int csh_num_builtins(){
+    return sizeof(bultin_str) / sizeof(char *);
+}
+
+
+int csh_cd(char **args){
+    if (args[1] == NULL) fprintf(stderr, "csh: expected argument to \"cd\"\n");
+    else{
+	if (chdir(args[1]) != 0) perror("csh");
+    }
+    return 1;
+}
+
+int csh_help(char **args){
+    int i;
+    printf("Aldin Ugljanin's CSH\n");
+    printf("Type program names and arguments, and hit enter.\n");
+    printf("The following are built in:\n");
+
+    for(i = 0; i< csh_num_builtins(); i++){
+	printf("   %s\n", bultin_str[i]);
+    }
+    printf("Use the man command for information on other programs.\n");
+    return 1;
+
+}
+
+int csh_exit(char **args){
+    return 0;
+}
+
+int cshell_execute(char **args){
+    int i;
+    if (args[0] == NULL) return 1;
+
+    for(i = 0; i < csh_num_builtins(); i++){
+	if (strcmp(args[0], bultin_str[i]) == 0) return (*bultin_func[i])(args);
+    }
+
+    return cshell_launch(args);
 }
